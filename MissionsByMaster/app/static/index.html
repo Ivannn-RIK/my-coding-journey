@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Поиск в архиве</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="card">
+    <h1>Поиск чисел в архиве</h1>
+
+    <div class="controls">
+      <div class="field">
+        <label for="searchInput">Введи число, которое хочешь найти:</label>
+        <input type="number" id="searchInput" value="42" min="0" max="99">
+      </div>
+
+      <div class="buttons">
+        <button id="searchBtn" class="btn btn-primary">Поиск</button>
+        <button id="regenBtn" class="btn btn-secondary">&#128260 Обновить массив</button>
+      </div>
+    </div>
+
+    <hr>
+
+    <div id="resultContent">Нажми «Поиск», чтобы просканировать архив...</div>
+  </div>
+
+  <script>
+    const inputEl = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const regenBtn = document.getElementById('regenBtn');
+    const resultEl = document.getElementById('resultContent');
+
+    // ── Поиск ──
+    async function performSearch() {
+      const x = inputEl.value;
+      resultEl.textContent = 'Ищу...';
+
+      try {
+        const res = await fetch('/api/find?x=' + encodeURIComponent(x));
+        const data = await res.json();
+
+        if (data.error) {
+          resultEl.innerHTML = '&#9940 Введи целое число от 0 до 99.';
+        } else if (!data.found) {
+          resultEl.innerHTML = '<b>-1</b><br>Если вывело -1 значит, что я ничего не нашел :(';
+        } else {
+          resultEl.innerHTML =
+            '&#128218 Я долго искал ваше число в архиве<br>' +
+            'и ваш x лежит в архиве под индексом: <b>' +
+            data.indices.join(', ') + '</b>';
+        }
+      } catch (e) {
+        resultEl.textContent = 'Ошибка соединения с сервером';
+      }
+    }
+
+    // ── Обновление массива ──
+    async function regenerateArray() {
+      resultEl.textContent = '&#128260 Генерирую новый массив...';
+      try {
+        const res = await fetch('/api/regenerate');
+        const data = await res.json();
+
+        if (data.ok) {
+          resultEl.innerHTML =
+            '	&#9989 Массив обновлён! Теперь в нём <b>' + data.size + '</b> новых чисел.<br>' +
+            'Можешь снова искать.';
+        } else {
+          resultEl.textContent = '&#9940 Не удалось обновить массив.';
+        }
+      } catch (e) {
+        resultEl.textContent = 'Ошибка соединения с сервером';
+      }
+    }
+
+    searchBtn.addEventListener('click', performSearch);
+    regenBtn.addEventListener('click', regenerateArray);
+
+    inputEl.addEventListener('keypress', e => {
+      if (e.key === 'Enter') performSearch();
+    });
+  </script>
+</body>
+
+</html>

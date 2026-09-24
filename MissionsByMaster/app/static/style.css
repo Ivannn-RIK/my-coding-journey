@@ -1,0 +1,186 @@
+*,
+*::after,
+*::before {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #e9d045 100%);
+  color: #e6f0fb;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+/* background:
+  radial-gradient(circle at 20% 20%, #190d30 0%, transparent 50%),
+  radial-gradient(circle at 80% 80%, #0d2c2c 0%, transparent 50%),
+  #060b14; */
+
+.card {
+  background: linear-gradient(160deg, #101d2e, #0a1420);
+  padding: 36px 40px;
+  border-radius: 22px;
+  max-width: 720px;
+  width: 100%;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, .75), 0 0 0 1px rgba(80, 140, 220, .15);
+}
+
+h1 {
+  font-size: 1.7rem;
+  background: linear-gradient(90deg, #7dc4ff, #4fa3ff, #a58bff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 22px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field label {
+  color: #8fa9c4;
+  font-size: .95rem;
+}
+
+input[type="number"] {
+  font-size: 1.05rem;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1.5px solid #2a6fb0;
+  background: #0a1420;
+  color: #fff;
+  outline: none;
+  transition: .2s;
+  width: 180px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+input[type="number"]:focus {
+  border-color: #7dc4ff;
+  box-shadow: 0 0 0 4px rgba(79, 163, 255, .15);
+}
+
+/* ══════════════════════════════════════════
+   КНОПКИ — универсальный стиль
+   ══════════════════════════════════════════ */
+.buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  /* ↓↓↓ ключевые свойства, которые растягивают кнопку ↓↓↓ */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 140px;
+  /* минимальная ширина — чтобы слово «Поиск» влезло */
+  padding: 12px 26px;
+  /* внутренние отступы */
+  box-sizing: border-box;
+  /* padding не вылезает за width */
+
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: .3px;
+  font-family: inherit;
+  white-space: nowrap;
+  /* текст не переносится по буквам */
+
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: .2s;
+}
+
+/* ── Главная кнопка «Поиск» ── */
+.btn-primary {
+  background: linear-gradient(135deg, #2e6eb8, #4ffff0);
+  color: #fff;
+  box-shadow: 0 6px 0 #0a1a2b, 0 10px 25px rgba(0, 0, 0, .5);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 0 #0a1a2b, 0 14px 30px rgba(0, 0, 0, .6);
+}
+
+.btn-primary:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #0a1a2b;
+}
+
+/* ── Вторичная кнопка «Обновить массив» ── */
+.btn-secondary {
+  background: transparent;
+  color: #7dc4ff;
+  border: 1.5px solid #2a6fb0;
+}
+
+.btn-secondary:hover {
+  background: rgba(79, 163, 255, .1);
+  border-color: #7dc4ff;
+  transform: translateY(-2px);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+}
+
+hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #2a6fb0, transparent);
+  margin: 22px 0;
+}
+
+#resultContent {
+  padding: 22px;
+  background: #0a1420;
+  border-radius: 14px;
+  border-left: 4px solid #4fa3ff;
+  min-height: 70px;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  transition: .2s;
+}
+
+#resultContent b {
+  color: #7dc4ff;
+}
+
+@media (max-width: 520px) {
+  .card {
+    padding: 26px 22px;
+  }
+
+  input[type="number"] {
+    width: 100%;
+  }
+
+  .buttons {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
