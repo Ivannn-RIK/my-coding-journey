@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laser Labyrinth — Reverse</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0a0a;
+      /* fon osnov */
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .label {
+      position: fixed;
+      top: 20px;
+      left: 24px;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #197ea8;
+      /* txt laser */
+      z-index: 10;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 380px;
+      padding: 28px 32px;
+      background: #3a3a41;
+      /* fon */
+      border: 1px solid #e9e8ee(200, 149, 108, 0.25);
+      /* ramka */
+      border-radius: 14px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      color: #e6d5c3;
+      /* txt user */
+      z-index: 20;
+    }
+
+    .panel h1 {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(108, 182, 200, 0.85);
+      /* txt */
+      margin-bottom: 18px;
+      text-align: center;
+    }
+
+    .panel input {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 16px;
+      font-family: inherit;
+      background: rgba(0, 0, 0, 0.5);
+      /* pole */
+      border: 1px solid #e9e8ee(200, 149, 108, 0.3);
+      /* ramka */
+      border-radius: 8px;
+      color: #197ea8;
+      /* txt */
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .panel input:focus {
+      border-color: #e9e8ee(200, 149, 108, 0.8);
+      /* ramka */
+    }
+
+    .panel button {
+      margin-top: 12px;
+      width: 100%;
+      padding: 12px;
+      font-size: 14px;
+      font-family: inherit;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #6ca6c8, #197ea8);
+      /* fon button */
+      color: #0a0a0a;
+      /* txt */
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: filter 0.2s;
+    }
+
+    .panel button:hover {
+      filter: brightness(1.15);
+      /* flash */
+    }
+
+    .result {
+      margin-top: 18px;
+      padding: 12px;
+      min-height: 44px;
+      background: rgba(0, 0, 0, 0.4);
+      /* fon result */
+      border-radius: 8px;
+      font-size: 15px;
+      text-align: center;
+      color: #197ea8;
+      /* txt */
+      word-break: break-all;
+    }
+
+    .status {
+      margin-top: 8px;
+      font-size: 11px;
+      text-align: center;
+      color: rgba(108, 182, 200, 0.85);
+      /* ok */
+      min-height: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="label">Laser Labyrinth</div>
+  <canvas id="canvas"></canvas>
+
+  <div class="panel">
+    <h1>Reverse Number</h1>
+    <input type="text" id="numInput" placeholder="Введи число..." autocomplete="off">
+    <button onclick="reverseNumber()">Реверснуть</button>
+    <div class="result" id="resultText"></div>
+    <div class="status" id="statusMessage"></div>
+  </div>
+
+  <script>
+
+    (function () {
+      var canvas = document.getElementById('canvas');
+      var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      var gl = canvas.getContext('webgl', { alpha: false, antialias: false, preserveDrawingBuffer: false });
+      if (!gl) return;
+
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      var SWEEP_SPEED = 0.5;
+      var BEAM_INTENSITY = 1.0;
+
+      var vertSrc = [
+        'attribute vec2 a_pos;',
+        'void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }'
+      ].join('\n');
+
+      var fragSrc = [
+        'precision highp float;',
+        'uniform float u_time;',
+        'uniform vec2 u_res;',
+        'uniform float u_sweep;',
+        'uniform float u_intensity;',
+        '',
+        '#define PI 3.14159265359',
+        '',
+        'float hash(vec2 p) {',
+        '  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);',
+        '}',
+        'float hash3(vec3 p) {',
+        '  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);',
+        '}',
+        'float noise3d(vec3 p) {',
+        '  vec3 i = floor(p);',
+        '  vec3 f = fract(p);',
+        '  f = f * f * (3.0 - 2.0 * f);',
+        '  float n000 = hash3(i);',
+        '  float n100 = hash3(i + vec3(1.0, 0.0, 0.0));',
+        '  float n010 = hash3(i + vec3(0.0, 1.0, 0.0));',
+        '  float n110 = hash3(i + vec3(1.0, 1.0, 0.0));',
+        '  float n001 = hash3(i + vec3(0.0, 0.0, 1.0));',
+        '  float n101 = hash3(i + vec3(1.0, 0.0, 1.0));',
+        '  float n011 = hash3(i + vec3(0.0, 1.0, 1.0));',
+        '  float n111 = hash3(i + vec3(1.0, 1.0, 1.0));',
+        '  float nx00 = mix(n000, n100, f.x);',
+        '  float nx10 = mix(n010, n110, f.x);',
+        '  float nx01 = mix(n001, n101, f.x);',
+        '  float nx11 = mix(n011, n111, f.x);',
+        '  float nxy0 = mix(nx00, nx10, f.y);',
+        '  float nxy1 = mix(nx01, nx11, f.y);',
+        '  return mix(nxy0, nxy1, f.z);',
+        '}',
+        'float fbm(vec3 p) {',
+        '  float v = 0.0;',
+        '  float a = 0.5;',
+        '  vec3 shift = vec3(100.0);',
+        '  for (int i = 0; i < 4; i++) {',
+        '    v += a * noise3d(p);',
+        '    p = p * 2.0 + shift;',
+        '    a *= 0.5;',
+        '  }',
+        '  return v;',
+        '}',
+        'vec3 coneColor(int idx, float hueShift) {',
+        '  vec3 col;',
+        '  if (idx == 0) col = vec3(1.0, 0.0, 0.5);',
+        '  else if (idx == 1) col = vec3(0.5, 0.05, 1.0);',
+        '  else if (idx == 2) col = vec3(0.1, 0.35, 1.0);',
+        '  else if (idx == 3) col = vec3(0.85, 0.0, 0.85);',
+        '  else if (idx == 4) col = vec3(0.15, 0.2, 1.0);',
+        '  else col = vec3(0.0, 0.8, 0.95);',
+        '  float angle = hueShift;',
+        '  float cosA = cos(angle);',
+        '  float sinA = sin(angle);',
+        '  float lum = dot(col, vec3(0.299, 0.587, 0.114));',
+        '  vec3 grey = vec3(lum);',
+        '  vec3 diff = col - grey;',
+        '  vec3 axis1 = normalize(vec3(1.0, -1.0, 0.0));',
+        '  vec3 axis2 = normalize(vec3(0.5, 0.5, -1.0));',
+        '  float d1 = dot(diff, axis1);',
+        '  float d2 = dot(diff, axis2);',
+        '  vec3 rotated = grey + axis1 * (d1 * cosA - d2 * sinA) + axis2 * (d1 * sinA + d2 * cosA);',
+        '  return clamp(rotated, 0.0, 1.0);',
+        '}',
+        'void main() {',
+        '  vec2 fragUV = gl_FragCoord.xy / u_res;',
+        '  float aspect = u_res.x / u_res.y;',
+        '  vec2 uv = fragUV;',
+        '  uv.x = (uv.x - 0.5) * aspect;',
+        '  float t = u_time * u_sweep;',
+        '  float intensity = u_intensity;',
+        '  vec3 fogCoord = vec3(fragUV * 3.0, t * 0.08);',
+        '  fogCoord.y -= t * 0.03;',
+        '  fogCoord.x += t * 0.015;',
+        '  float fogDensity = fbm(fogCoord);',
+        '  vec3 fogCoord2 = vec3(fragUV * 6.0 + 50.0, t * 0.12);',
+        '  fogCoord2.y -= t * 0.05;',
+        '  float fogDetail = fbm(fogCoord2);',
+        '  float fog = fogDensity * 0.5 + fogDetail * 0.5;',
+        '  fog = fog * fog * 1.5;',
+        '  vec3 col = vec3(0.0);',
+        '  float hueShift = sin(t * 0.07) * 0.2;',
+        '  float globalBeat = pow(abs(sin(t * PI / 1.5)), 8.0) * 0.2;',
+        '  for (int i = 0; i < 3; i++) {',
+        '    float fi = float(i);',
+        '    float originX = (fi - 1.0) * 0.4 * aspect;',
+        '    originX += sin(t * 0.07 + fi * 2.5) * 0.1 * aspect;',
+        '    vec2 origin = vec2(originX, 1.05);',
+        '    float sweepAmp = 0.4 + fi * 0.1;',
+        '    float sweepFreq = 0.3 + fi * 0.11;',
+        '    float theta = sin(t * sweepFreq * 0.7 + fi * 1.9) * sweepAmp;',
+        '    vec2 dir = vec2(sin(theta), -cos(theta));',
+        '    vec2 toPixel = uv - origin;',
+        '    float along = dot(toPixel, dir);',
+        '    float perp = abs(toPixel.x * dir.y - toPixel.y * dir.x);',
+        '    float halfWidth = 0.13 + fi * 0.015;',
+        '    float coneWidth = halfWidth * max(along, 0.0) + 0.012;',
+        '    float inCone = exp(-perp * perp / (coneWidth * coneWidth * 0.55));',
+        '    inCone *= smoothstep(0.0, 0.08, along);',
+        '    inCone *= exp(-along * along * 0.15);',
+        '    float fogMod = 0.25 + fog * 0.75;',
+        '    float volumetric = inCone * fogMod;',
+        '    float farOpacity = 0.35;',
+        '    vec3 coneCol = coneColor(i, hueShift + fi * 0.15);',
+        '    col += coneCol * volumetric * farOpacity * intensity * (1.0 + globalBeat);',
+        '  }',
+        '  for (int i = 0; i < 3; i++) {',
+        '    float fi = float(i);',
+        '    int colorIdx = i + 3;',
+        '    float originX = (fi - 1.0) * 0.5 * aspect + 0.15 * aspect;',
+        '    originX += sin(t * 0.1 + fi * 3.1 + 1.0) * 0.08 * aspect;',
+        '    vec2 origin = vec2(originX, 1.02);',
+        '    float sweepAmp = 0.5 + fi * 0.08;',
+        '    float sweepFreq = 0.4 + fi * 0.13;',
+        '    float theta = sin(t * sweepFreq + fi * 2.3 + 0.7) * sweepAmp;',
+        '    float beatFreq = 1.8 + fi * 0.4;',
+        '    float snap = pow(abs(sin(t * beatFreq)), 6.0);',
+        '    float snapGate = smoothstep(0.5, 0.85, sin(t * 0.7 + fi * 2.094));',
+        '    theta += snap * snapGate * 0.18 * sin(t * beatFreq * 0.5);',
+        '    vec2 dir = vec2(sin(theta), -cos(theta));',
+        '    vec2 toPixel = uv - origin;',
+        '    float along = dot(toPixel, dir);',
+        '    float perp = abs(toPixel.x * dir.y - toPixel.y * dir.x);',
+        '    float halfWidth = 0.11 + fi * 0.012;',
+        '    float coneWidth = halfWidth * max(along, 0.0) + 0.01;',
+        '    float inCone = exp(-perp * perp / (coneWidth * coneWidth * 0.4));',
+        '    float coreLine = exp(-perp * perp / (coneWidth * coneWidth * 0.04));',
+        '    inCone = inCone + coreLine * 0.4;',
+        '    inCone *= smoothstep(0.0, 0.06, along);',
+        '    inCone *= exp(-along * along * 0.1);',
+        '    float fogMod = 0.2 + fog * 0.8;',
+        '    float volumetric = inCone * fogMod;',
+        '    float nearOpacity = 0.75;',
+        '    vec3 coneCol = coneColor(colorIdx, hueShift + fi * 0.15 + 0.5);',
+        '    col += coneCol * volumetric * nearOpacity * intensity * (1.0 + globalBeat);',
+        '  }',
+        '  float brightness = dot(col, vec3(0.299, 0.587, 0.114));',
+        '  float whiteBlend = smoothstep(0.4, 1.2, brightness);',
+        '  col = mix(col, vec3(brightness * 1.3), whiteBlend * 0.5);',
+        '  float groundHaze = smoothstep(0.2, 0.0, fragUV.y);',
+        '  float hazeFog = fbm(vec3(fragUV.x * 4.0, fragUV.y * 2.0, t * 0.05 + 10.0));',
+        '  col += col * groundHaze * 0.3;',
+        '  col += vec3(0.06, 0.03, 0.1) * groundHaze * hazeFog * intensity;',
+        '  float exposure = 2.0;',
+        '  col = 1.0 - exp(-col * exposure);',
+        '  float grain = hash(gl_FragCoord.xy + fract(u_time) * 100.0) * 0.04 - 0.02;',
+        '  col += grain;',
+        '  vec2 vigUV = fragUV - 0.5;',
+        '  float vigDist = dot(vigUV, vigUV);',
+        '  float vig = 1.0 - vigDist * 0.8;',
+        '  vig = clamp(vig, 0.0, 1.0);',
+        '  col *= vig;',
+        '  col = clamp(col, 0.0, 1.0);',
+        '  gl_FragColor = vec4(col, 1.0);',
+        '}'
+      ].join('\n');
+
+      function compile(type, src) {
+        var s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+          console.error('Shader compile error:', gl.getShaderInfoLog(s));
+        }
+        return s;
+      }
+
+      var prog = gl.createProgram();
+      gl.attachShader(prog, compile(gl.VERTEX_SHADER, vertSrc));
+      gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fragSrc));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        console.error('Program link error:', gl.getProgramInfoLog(prog));
+      }
+      gl.useProgram(prog);
+
+      var buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      var aPos = gl.getAttribLocation(prog, 'a_pos');
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+      var uTime = gl.getUniformLocation(prog, 'u_time');
+      var uRes = gl.getUniformLocation(prog, 'u_res');
+      var uSweep = gl.getUniformLocation(prog, 'u_sweep');
+      var uIntensity = gl.getUniformLocation(prog, 'u_intensity');
+
+      var needsResize = true;
+
+      function resize() {
+        needsResize = false;
+        var w = Math.round(canvas.clientWidth * dpr);
+        var h = Math.round(canvas.clientHeight * dpr);
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+          gl.viewport(0, 0, w, h);
+          gl.uniform2f(uRes, canvas.width, canvas.height);
+        }
+      }
+
+      var running = true;
+
+      function render(now) {
+        if (!running) return;
+        if (needsResize) resize();
+        var t = prefersReduced ? 0.0 : now * 0.001;
+        gl.uniform1f(uTime, t);
+        gl.uniform1f(uSweep, SWEEP_SPEED);
+        gl.uniform1f(uIntensity, BEAM_INTENSITY);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        requestAnimationFrame(render);
+      }
+
+      window.addEventListener('resize', function () {
+        needsResize = true;
+      });
+
+      resize();
+
+      requestAnimationFrame(render);
+
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+          running = false;
+        } else {
+          running = true;
+          requestAnimationFrame(render);
+        }
+      });
+
+      window.addEventListener('message', function (e) {
+        if (e.data && e.data.type === 'param') {
+          switch (e.data.name) {
+            case 'SWEEP_SPEED': SWEEP_SPEED = e.data.value; break;
+            case 'BEAM_INTENSITY': BEAM_INTENSITY = e.data.value; break;
+          }
+        }
+      });
+    })();
+
+    // Reverse Number — логика из Main.java
+    (function () {
+      var input = document.getElementById('numInput');
+      var resultText = document.getElementById('resultText');
+      var status = document.getElementById('statusMessage');
+
+      window.reverseNumber = async function () {
+        var num = input.value.trim();
+
+        if (num === '') {
+          status.innerText = 'Введи число!';
+          resultText.innerText = '';
+          return;
+        }
+
+        try {
+          var response = await fetch('/reverse?num=' + encodeURIComponent(num));
+          var data = await response.json();
+
+          if (response.ok) {
+            resultText.innerText = 'Реверс: ' + data.reversed;
+            status.innerText = 'OK';
+          } else {
+            status.innerText = 'Ошибка: ' + data.detail;
+            resultText.innerText = '';
+          }
+        } catch (e) {
+          status.innerText = 'Ошибка сети!!!';
+          resultText.innerText = '';
+        }
+      };
+
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') window.reverseNumber();
+      });
+    })();
+  </script>
+</body>
+
+</html>
+
+
+
+
+
+<!-- <!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reverse Number Service</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+  <div class="container">
+    <h1>Сервис реверса числа</h1>
+    <p>Вариант: разворот десятичной записи числа</p>
+
+    <div class="controls">
+      <h3>Ввод числа</h3>
+      <input type="text" id="numInput" placeholder="Например: 12345" autocomplete="off">
+      <button onclick="reverseNumber()">Реверснуть</button>
+    </div>
+
+    <div class="preview">
+      <h3>Результат</h3>
+      <p id="resultText">Здесь будет результат!!!</p>
+      <p id="statusMessage"></p>
+    </div>
+  </div>
+
+  <script>
+    const input = document.getElementById('numInput');
+    const resultText = document.getElementById('resultText');
+    const status = document.getElementById('statusMessage');
+
+    async function reverseNumber() {
+      const num = input.value.trim();
+
+      if (num === '') {
+        status.innerText = 'Введи число!';
+        resultText.innerText = '';
+        return;
+      }
+
+      try {
+        const response = await fetch(`/reverse?num=${encodeURIComponent(num)}`); // # axios
+        const data = await response.json();
+
+        if (response.ok) {
+          resultText.innerText = 'Реверснутое число: ' + data.reversed;
+          status.innerText = 'Операция выполнена: reverse';
+        } else {
+          status.innerText = 'Ошибка: ' + data.detail;
+          resultText.innerText = '';
+        }
+      } catch (e) {
+        status.innerText = 'Ошибка сети!!!';
+        resultText.innerText = '';
+      }
+    }
+
+    // Enter тоже запускает реверс
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') reverseNumber();
+    });
+  </script>
+</body>
+
+</html> -->
